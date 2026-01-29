@@ -1,66 +1,59 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Frontend Demo</title>
+import speech_recognition as sr
+import pyttsx3
+import smtplib
+from geopy.geocoders import Nominatim
+from datetime import datetime
 
-    <!-- CSS inside same file -->
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f2f2f2;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
+# Initialize text-to-speech engine
+engine = pyttsx3.init()
 
-        .card {
-            background: white;
-            padding: 20px;
-            width: 300px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            text-align: center;
-        }
+def speak(text):
+    engine.say(text)
+    engine.runAndWait()
 
-        button {
-            padding: 10px 15px;
-            border: none;
-            background: #007bff;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
+def get_location():
+    geolocator = Nominatim(user_agent="sos_alert_app")
+    location = geolocator.geocode("Your address or use GPS module")
+    return location.address if location else "Location unavailable"
 
-        button:hover {
-            background: #0056b3;
-        }
+def send_email_alert(location):
+    sender_email = "your_email@example.com"
+    receiver_email = "emergency_contact@example.com"
+    password = "your_email_password"
 
-        #message {
-            margin-top: 15px;
-            color: green;
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body>
+    subject = "🚨 Emergency SOS Alert"
+    body = f"Emergency alert triggered at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nLocation: {location}"
 
-    <!-- HTML -->
-    <div class="card">
-        <h2>Frontend Demo</h2>
-        <p>Button click panna message change aagum</p>
-        <button onclick="showMessage()">Click Me</button>
-        <div id="message"></div>
-    </div>
+    message = f"Subject: {subject}\n\n{body}"
 
-    <!-- JavaScript inside same file -->
-    <script>
-        function showMessage() {
-            document.getElementById("message").innerText =
-                "Hello! HTML + CSS + JS working perfectly 🚀";
-        }
-    </script>
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, message)
+        speak("Emergency alert sent successfully.")
+    except Exception as e:
+        speak("Failed to send alert.")
+        print(f"Error: {e}")
 
-</body>
-</html>
+def listen_for_command():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        speak("Listening for SOS command...")
+        audio = recognizer.listen(source)
+
+    try:
+        command = recognizer.recognize_google(audio).lower()
+        print(f"Command received: {command}")
+        if "help" in command or "sos" in command:
+            location = get_location()
+            send_email_alert(location)
+        else:
+            speak("No emergency command detected.")
+    except sr.UnknownValueError:
+        speak("Could not understand the command.")
+    except sr.RequestError as e:
+        speak("Speech recognition service failed.")
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    listen_for_command()
